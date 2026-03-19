@@ -210,34 +210,38 @@ const Facade = {
     } else {
       return knex.transaction(async (trx) => {
         try {
-          // First we check if debit/credit are balanced
+          // First we check if debit/credit are balanced before aggregation
           const ledgerEntries = await knex
             .select('ppc.participantCurrencyId', 'ppc.change')
             .from('transferFulfilment AS tf')
-                .join('transferStateChange AS tsc', 'tsc.transferId', 'tf.transferId')
-                .join('participantPositionChange AS ppc', 'ppc.transferStateChangeId', 'tsc.transferStateChangeId')
-                .where('tf.settlementWindowId', settlementWindowId)
-                .unionAll(/* istanbul ignore next */ function () {
-                  this.select('ppc.participantCurrencyId', 'ppc.change')
-                    .from('fxTransferFulfilment AS fxtf')
-                    .join('fxTransferStateChange AS fxtsc', 'fxtsc.commitRequestId', 'fxtf.commitRequestId')
-                    .join('participantPositionChange AS ppc', 'ppc.fxTransferStateChangeId', 'fxtsc.fxTransferStateChangeId')
-                    .where('fxtf.settlementWindowId', settlementWindowId)
-                })
-                .transacting(trx);
+            .join('transferStateChange AS tsc', 'tsc.transferId', 'tf.transferId')
+            .join('participantPositionChange AS ppc', 'ppc.transferStateChangeId', 'tsc.transferStateChangeId')
+            .where('tf.settlementWindowId', settlementWindowId)
+            .unionAll(/* istanbul ignore next */ function () {
+              this.select('ppc.participantCurrencyId', 'ppc.change')
+                .from('fxTransferFulfilment AS fxtf')
+                .join('fxTransferStateChange AS fxtsc', 'fxtsc.commitRequestId', 'fxtf.commitRequestId')
+                .join('participantPositionChange AS ppc', 'ppc.fxTransferStateChangeId', 'fxtsc.fxTransferStateChangeId')
+                .where('fxtf.settlementWindowId', settlementWindowId)
+            })
+            .transacting(trx)
           
           if (!ledgerEntries.length) {
-            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, `No ledger entries found for this settlement window`);
+            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, 'No ledger entries found for this settlement window')
           }
           
-          let balanced = new MLNumber(0);
-          const pCurrencyIds = [];
+          let balanced = new MLNumber(0)
+          const pCurrencyIds = []
           for (const entry of ledgerEntries) {
-            balanced = balanced.add(entry.change);
-            pCurrencyIds.push(entry.participantCurrencyId);
+            balanced = balanced.add(entry.change)
+            pCurrencyIds.push(entry.participantCurrencyId)
           }
+          Logger.info(`Balanced before aggregation is ${balanced.toNumber()}`)
           if (balanced.toNumber() !== 0) {
-            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, `Debits and credits are not balanced yet`);
+            throw ErrorHandler.Factory.createFSPIOPError(
+              ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, 
+              `Debits and credits are not balanced in participantPositionChange for window ID ${settlementWindowId}`
+            )
           }
 
           const transactionTimestamp = new Date()
@@ -307,6 +311,23 @@ const Facade = {
             })
             .transacting(trx)
           await builder
+
+          // Then check again if debit/credit are balanced after aggregation
+          const aggContent = await knex
+            .from('settlementContentAggregation AS sca')
+            .join('settlementWindowContent AS swc', 'swc.settlementWindowContentId', 'sca.settlementWindowContentId')
+            .where('swc.settlementWindowId', settlementWindowId)
+            .sum('sca.amount AS balanced')
+            .first()
+            .transacting(trx)
+          
+          Logger.info(`Balanced after aggregation is ${aggContent.balanced}`)
+          if (aggContent.balanced == null || new MLNumber(aggContent.balanced).toNumber() !== 0) {
+            throw ErrorHandler.Factory.createFSPIOPError(
+              ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, 
+              `Debits and credits are not balanced in settlementContentAggregation for window ID ${settlementWindowId}`
+            )
+          }
 
           // Insert settlementWindowContentStateChange
           builder = knex
