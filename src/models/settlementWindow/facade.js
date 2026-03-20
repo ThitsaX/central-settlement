@@ -225,11 +225,11 @@ const Facade = {
                 .where('fxtf.settlementWindowId', settlementWindowId)
             })
             .transacting(trx)
-          
+
           if (!ledgerEntries.length) {
             throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, 'No ledger entries found for this settlement window')
           }
-          
+
           let balanced = new MLNumber(0)
           const pCurrencyIds = []
           for (const entry of ledgerEntries) {
@@ -239,7 +239,7 @@ const Facade = {
           Logger.info(`Balanced before aggregation is ${balanced.toNumber()}`)
           if (balanced.toNumber() !== 0) {
             throw ErrorHandler.Factory.createFSPIOPError(
-              ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, 
+              ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR,
               `Debits and credits are not balanced in participantPositionChange for window ID ${settlementWindowId}`
             )
           }
@@ -320,11 +320,11 @@ const Facade = {
             .sum('sca.amount AS balanced')
             .first()
             .transacting(trx)
-          
+
           Logger.info(`Balanced after aggregation is ${aggContent.balanced}`)
           if (aggContent.balanced == null || new MLNumber(aggContent.balanced).toNumber() !== 0) {
             throw ErrorHandler.Factory.createFSPIOPError(
-              ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, 
+              ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR,
               `Debits and credits are not balanced in settlementContentAggregation for window ID ${settlementWindowId}`
             )
           }
