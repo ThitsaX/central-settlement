@@ -236,12 +236,11 @@ const Facade = {
             balanced = balanced.add(entry.change)
             pCurrencyIds.push(entry.participantCurrencyId)
           }
-          Logger.info(`Balanced before aggregation is ${balanced.toNumber()}`)
+          Logger.isInfoEnabled && Logger.info(`Balanced before aggregation is ${balanced.toNumber()}`)
           if (balanced.toNumber() !== 0) {
-            throw ErrorHandler.Factory.createFSPIOPError(
-              ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR,
-              `Debits and credits are not balanced in participantPositionChange for window ID ${settlementWindowId}`
-            )
+            const errMessage = `Debits and credits are not balanced in participantPositionChange for window ID ${settlementWindowId}`
+            Logger.isErrorEnabled && Logger.error(errMessage)
+            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, errMessage)
           }
 
           const transactionTimestamp = new Date()
@@ -321,12 +320,11 @@ const Facade = {
             .first()
             .transacting(trx)
 
-          Logger.info(`Balanced after aggregation is ${aggContent.balanced}`)
+          Logger.isInfoEnabled && Logger.info(`Balanced after aggregation is ${aggContent.balanced}`)
           if (aggContent.balanced == null || new MLNumber(aggContent.balanced).toNumber() !== 0) {
-            throw ErrorHandler.Factory.createFSPIOPError(
-              ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR,
-              `Debits and credits are not balanced in settlementContentAggregation for window ID ${settlementWindowId}`
-            )
+            const errMessage = `Debits and credits are not balanced in settlementContentAggregation for window ID ${settlementWindowId}`
+            Logger.isErrorEnabled && Logger.error(errMessage)
+            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, errMessage)
           }
 
           // Insert settlementWindowContentStateChange
