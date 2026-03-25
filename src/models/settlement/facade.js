@@ -43,6 +43,12 @@ const SettlementModelModel = require('./settlementModel')
 const Logger = require('@mojaloop/central-services-logger')
 const generateULID = idGenerator({ type: 'ulid' })
 
+const _isDeadlockError = (err) =>
+  err?.code === 'ER_LOCK_DEADLOCK' ||
+  err?.errno === 1213 ||
+  err?.message?.includes('ER_LOCK_DEADLOCK') ||
+  (typeof err?.cause === 'string' && err.cause.includes('ER_LOCK_DEADLOCK'))
+
 const groupByWindowsWithContent = (records) => {
   const settlementWindowsAssoc = {}
   for (const record of records) {
@@ -348,7 +354,7 @@ const settlementTransfersReserve = async function (settlementId, transactionTime
             })
             .transacting(trx)
 
-          // Send notification for position change
+          // Collect notification for position change — sent after commit
           const action = 'settlement-transfer-position-change'
           const destination = dfspName
           const payload = {
@@ -357,7 +363,7 @@ const settlementTransfersReserve = async function (settlementId, transactionTime
             changedDate: new Date().toISOString()
           }
           const message = Facade.getNotificationMessage(action, destination, payload)
-          await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, message, Utility.ENUMS.STATE.SUCCESS)
+          pendingNotifications.push(message)
 
           // Select hubPosition FOR UPDATE
           const { hubPositionId, hubPositionValue } = await knex('participantPosition')
@@ -502,7 +508,7 @@ const settlementTransfersAbort = async function (settlementId, transactionTimest
             })
             .transacting(trx)
 
-          // Send notification for position change
+          // Collect notification for position change — sent after commit
           const action = 'settlement-transfer-position-change'
           const destination = dfspName
           const payload = {
@@ -511,7 +517,7 @@ const settlementTransfersAbort = async function (settlementId, transactionTimest
             changedDate: new Date().toISOString()
           }
           const message = Facade.getNotificationMessage(action, destination, payload)
-          await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, message, Utility.ENUMS.STATE.SUCCESS)
+          pendingNotifications.push(message)
 
           // Select hubPosition FOR UPDATE
           const { hubPositionId, hubPositionValue } = await knex('participantPosition')
@@ -699,7 +705,7 @@ const settlementTransfersCommit = async function (settlementId, transactionTimes
             })
             .transacting(trx)
 
-          // Send notification for position change
+          // Collect notification for position change — sent after commit
           const action = 'settlement-transfer-position-change'
           const destination = dfspName
           const payload = {
@@ -708,7 +714,7 @@ const settlementTransfersCommit = async function (settlementId, transactionTimes
             changedDate: new Date().toISOString()
           }
           const message = Facade.getNotificationMessage(action, destination, payload)
-          await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, message, Utility.ENUMS.STATE.SUCCESS)
+          pendingNotifications.push(message)
         }
       }
     } catch (err) {
@@ -782,9 +788,14 @@ const Facade = {
    */
   putById: async function (settlementId, payload, enums) {
     const knex = await Db.getKnex()
-    return knex.transaction(async (trx) => {
+    let retryCount = 0
+    while (true) {
+      const pendingNotifications = []
       try {
-        const transactionTimestamp = new Date().toISOString().replace(/[TZ]/g, ' ').trim()
+        const result = await knex.transaction(async (trx) => {
+          await knex.raw('SET TRANSACTION ISOLATION LEVEL READ COMMITTED').transacting(trx)
+          try {
+            const transactionTimestamp = new Date().toISOString().replace(/[TZ]/g, ' ').trim()
 
         // seq-settlement-6.2.5, step 3
         const settlementData = await knex('settlement AS s')
@@ -1195,11 +1206,24 @@ const Facade = {
             participants
           }
         }
+          } catch (err) {
+            Logger.isErrorEnabled && Logger.error(err)
+            throw ErrorHandler.Factory.reformatFSPIOPError(err)
+          }
+        })
+        for (const msg of pendingNotifications) {
+          await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, msg, Utility.ENUMS.STATE.SUCCESS)
+        }
+        return result
       } catch (err) {
-        Logger.isErrorEnabled && Logger.error(err)
-        throw ErrorHandler.Factory.reformatFSPIOPError(err)
+        if (_isDeadlockError(err) && retryCount < Config.SETTLEMENT_DEADLOCK_RETRIES) {
+          retryCount++
+          await new Promise(resolve => setTimeout(resolve, Config.SETTLEMENT_DEADLOCK_RETRY_DELAY_MS * retryCount))
+        } else {
+          throw err
+        }
       }
-    })
+    }
   },
 
   abortById: async function (settlementId, payload, enums) {
