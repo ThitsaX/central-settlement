@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [17.2.2](https://github.com/mojaloop/central-settlement/compare/v17.2.1...v17.2.2) (2025-07-30)
+
+
+### Chore
+
+* add initial sbom ([#439](https://github.com/mojaloop/central-settlement/issues/439)) ([8cd58ea](https://github.com/mojaloop/central-settlement/commit/8cd58ea5a9de284ee38541eb9a4d7f29a32e623e))
+
+### [17.2.1](https://github.com/mojaloop/central-settlement/compare/v17.2.0...v17.2.1) (2025-07-24)
+
+
+### Chore
+
+* fix vul and update deps ([#438](https://github.com/mojaloop/central-settlement/issues/438)) ([68ab6ad](https://github.com/mojaloop/central-settlement/commit/68ab6ad87eef01c2aea9568442b25e51b1b0b68a))
+
+## [17.2.0](https://github.com/mojaloop/central-settlement/compare/v17.1.2...v17.2.0) (2025-07-17)
+
+
+### Features
+
+* added additional connection options ([#433](https://github.com/mojaloop/central-settlement/issues/433)) ([865742a](https://github.com/mojaloop/central-settlement/commit/865742ae21fb8d2a9e681cc4e89ac840d79ec5b4))
+
+
+### Chore
+
+* update dependencies ([#432](https://github.com/mojaloop/central-settlement/issues/432)) ([981381b](https://github.com/mojaloop/central-settlement/commit/981381b3520203b14f9a2a8a931cfbc3304cc8f1))
+
+### [17.1.3](https://github.com/mojaloop/central-settlement/compare/v17.1.2...v17.1.3) (2025-07-11)
+
+
+### Chore
+
+* update deps ([b896fc5](https://github.com/mojaloop/central-settlement/commit/b896fc5970ed8638c3bfe2a5e06961728bbf44e5))
+
+### [17.1.2](https://github.com/mojaloop/central-settlement/compare/v17.1.1...v17.1.2) (2025-06-16)
+
+
+### Chore
+
+* bump deps for rdkafka ([#428](https://github.com/mojaloop/central-settlement/issues/428)) ([834d37f](https://github.com/mojaloop/central-settlement/commit/834d37fff7f6d3986a8c8abd7340e897a4374873))
+
+### [17.1.1](https://github.com/mojaloop/central-settlement/compare/v17.1.0...v17.1.1) (2025-05-29)
+
+
+### Bug Fixes
+
+* new orb version to fix docker issue ([#427](https://github.com/mojaloop/central-settlement/issues/427)) ([98150cd](https://github.com/mojaloop/central-settlement/commit/98150cdc2988cffb82b2d6d7b043a0ab94c09909))
+
+## [17.1.0](https://github.com/mojaloop/central-settlement/compare/v17.0.6...v17.1.0) (2025-05-27)
+
+
+### Features
+
+* bump up node to v22.15.1 ([#426](https://github.com/mojaloop/central-settlement/issues/426)) ([800cf89](https://github.com/mojaloop/central-settlement/commit/800cf89e414a867884673870a93d464b4f10ead1))
+
 ### [17.0.6](https://github.com/mojaloop/central-settlement/compare/v17.0.5...v17.0.6) (2025-03-07)
 
 
