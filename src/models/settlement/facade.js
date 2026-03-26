@@ -43,6 +43,12 @@ const SettlementModelModel = require('./settlementModel')
 const Logger = require('@mojaloop/central-services-logger')
 const generateULID = idGenerator({ type: 'ulid' })
 
+const _isDeadlockError = (err) =>
+  err?.code === 'ER_LOCK_DEADLOCK' ||
+  err?.errno === 1213 ||
+  err?.message?.includes('ER_LOCK_DEADLOCK') ||
+  (typeof err?.cause === 'string' && err.cause.includes('ER_LOCK_DEADLOCK'))
+
 const groupByWindowsWithContent = (records) => {
   const settlementWindowsAssoc = {}
   for (const record of records) {
@@ -241,7 +247,7 @@ const settlementTransfersPrepare = async function (settlementId, transactionTime
  * @param enums.transferParticipantRoleTypes.HUB
  * @param enums.transferStates
  */
-const settlementTransfersReserve = async function (settlementId, transactionTimestamp, requireLiquidityCheck, enums, trx = null) {
+const settlementTransfersReserve = async function (settlementId, transactionTimestamp, requireLiquidityCheck, enums, trx = null, pendingNotifications = []) {
   const knex = await Db.getKnex()
   let isLimitExceeded, transferStateChangeId
   // Retrieve list of PS_TRANSFERS_RESERVED, but not RESERVED
@@ -348,7 +354,7 @@ const settlementTransfersReserve = async function (settlementId, transactionTime
             })
             .transacting(trx)
 
-          // Send notification for position change
+          // Collect notification for position change — sent after commit
           const action = 'settlement-transfer-position-change'
           const destination = dfspName
           const payload = {
@@ -357,7 +363,7 @@ const settlementTransfersReserve = async function (settlementId, transactionTime
             changedDate: new Date().toISOString()
           }
           const message = Facade.getNotificationMessage(action, destination, payload)
-          await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, message, Utility.ENUMS.STATE.SUCCESS)
+          pendingNotifications.push(message)
 
           // Select hubPosition FOR UPDATE
           const { hubPositionId, hubPositionValue } = await knex('participantPosition')
@@ -413,7 +419,7 @@ const settlementTransfersReserve = async function (settlementId, transactionTime
  * @param enums.transferParticipantRoleTypes.HUB
  * @param enums.transferStates
  */
-const settlementTransfersAbort = async function (settlementId, transactionTimestamp, enums, trx = null) {
+const settlementTransfersAbort = async function (settlementId, transactionTimestamp, enums, trx = null, pendingNotifications = []) {
   const knex = await Db.getKnex()
   let transferStateChangeId
 
@@ -502,7 +508,7 @@ const settlementTransfersAbort = async function (settlementId, transactionTimest
             })
             .transacting(trx)
 
-          // Send notification for position change
+          // Collect notification for position change — sent after commit
           const action = 'settlement-transfer-position-change'
           const destination = dfspName
           const payload = {
@@ -511,7 +517,7 @@ const settlementTransfersAbort = async function (settlementId, transactionTimest
             changedDate: new Date().toISOString()
           }
           const message = Facade.getNotificationMessage(action, destination, payload)
-          await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, message, Utility.ENUMS.STATE.SUCCESS)
+          pendingNotifications.push(message)
 
           // Select hubPosition FOR UPDATE
           const { hubPositionId, hubPositionValue } = await knex('participantPosition')
@@ -567,7 +573,7 @@ const settlementTransfersAbort = async function (settlementId, transactionTimest
  * @param enums.transferParticipantRoleTypes.HUB
  * @param enums.transferStates
  */
-const settlementTransfersCommit = async function (settlementId, transactionTimestamp, enums, trx = null) {
+const settlementTransfersCommit = async function (settlementId, transactionTimestamp, enums, trx = null, pendingNotifications = []) {
   const knex = await Db.getKnex()
   let transferStateChangeId
 
@@ -699,7 +705,7 @@ const settlementTransfersCommit = async function (settlementId, transactionTimes
             })
             .transacting(trx)
 
-          // Send notification for position change
+          // Collect notification for position change — sent after commit
           const action = 'settlement-transfer-position-change'
           const destination = dfspName
           const payload = {
@@ -708,7 +714,7 @@ const settlementTransfersCommit = async function (settlementId, transactionTimes
             changedDate: new Date().toISOString()
           }
           const message = Facade.getNotificationMessage(action, destination, payload)
-          await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, message, Utility.ENUMS.STATE.SUCCESS)
+          pendingNotifications.push(message)
         }
       }
     } catch (err) {
@@ -782,9 +788,13 @@ const Facade = {
    */
   putById: async function (settlementId, payload, enums) {
     const knex = await Db.getKnex()
-    return knex.transaction(async (trx) => {
+    let retryCount = 0
+    while (true) {
+      const pendingNotifications = []
       try {
-        const transactionTimestamp = new Date().toISOString().replace(/[TZ]/g, ' ').trim()
+        const result = await knex.transaction(async (trx) => {
+          try {
+            const transactionTimestamp = new Date().toISOString().replace(/[TZ]/g, ' ').trim()
 
         // seq-settlement-6.2.5, step 3
         const settlementData = await knex('settlement AS s')
@@ -1030,9 +1040,9 @@ const Facade = {
             if (settlementData.settlementStateId === enums.settlementStates.PENDING_SETTLEMENT) {
               await Facade.settlementTransfersPrepare(settlementId, transactionTimestamp, enums, trx)
             } else if (settlementData.settlementStateId === enums.settlementStates.PS_TRANSFERS_RECORDED) {
-              await Facade.settlementTransfersReserve(settlementId, transactionTimestamp, requireLiquidityCheck, enums, trx)
+              await Facade.settlementTransfersReserve(settlementId, transactionTimestamp, requireLiquidityCheck, enums, trx, pendingNotifications)
             } else if (settlementData.settlementStateId === enums.settlementStates.PS_TRANSFERS_RESERVED) {
-              await Facade.settlementTransfersCommit(settlementId, transactionTimestamp, enums, trx)
+              await Facade.settlementTransfersCommit(settlementId, transactionTimestamp, enums, trx, pendingNotifications)
             }
           }
 
@@ -1195,16 +1205,30 @@ const Facade = {
             participants
           }
         }
+          } catch (err) {
+            Logger.isErrorEnabled && Logger.error(err)
+            throw ErrorHandler.Factory.reformatFSPIOPError(err)
+          }
+        }, { isolationLevel: 'read committed' })
+        for (const msg of pendingNotifications) {
+          await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, msg, Utility.ENUMS.STATE.SUCCESS)
+        }
+        return result
       } catch (err) {
-        Logger.isErrorEnabled && Logger.error(err)
-        throw ErrorHandler.Factory.reformatFSPIOPError(err)
+        if (_isDeadlockError(err) && retryCount < Config.SETTLEMENT_DEADLOCK_RETRIES) {
+          retryCount++
+          await new Promise(resolve => setTimeout(resolve, Config.SETTLEMENT_DEADLOCK_RETRY_DELAY_MS * retryCount))
+        } else {
+          throw err
+        }
       }
-    })
+    }
   },
 
   abortById: async function (settlementId, payload, enums) {
     const knex = await Db.getKnex()
-    return knex.transaction(async (trx) => {
+    const pendingNotifications = []
+    await knex.transaction(async (trx) => {
       try {
         const transactionTimestamp = new Date().toISOString().replace(/[TZ]/g, ' ').trim()
 
@@ -1258,7 +1282,7 @@ const Facade = {
         }
         await Promise.all(updatePromises)
 
-        await Facade.settlementTransfersAbort(settlementId, transactionTimestamp, enums, trx)
+        await Facade.settlementTransfersAbort(settlementId, transactionTimestamp, enums, trx, pendingNotifications)
 
         // seq-settlement-6.2.6, step 16
         insertPromises = []
@@ -1311,6 +1335,9 @@ const Facade = {
         throw ErrorHandler.Factory.reformatFSPIOPError(err)
       }
     })
+    for (const msg of pendingNotifications) {
+      await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, msg, Utility.ENUMS.STATE.SUCCESS)
+    }
   },
 
   getById: async function ({ settlementId }) {
