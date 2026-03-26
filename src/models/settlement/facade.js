@@ -792,7 +792,7 @@ const Facade = {
     while (true) {
       const pendingNotifications = []
       try {
-        const result = await knex.transaction({ isolationLevel: 'read committed' }, async (trx) => {
+        const result = await knex.transaction(async (trx) => {
           try {
             const transactionTimestamp = new Date().toISOString().replace(/[TZ]/g, ' ').trim()
 
@@ -1209,7 +1209,7 @@ const Facade = {
             Logger.isErrorEnabled && Logger.error(err)
             throw ErrorHandler.Factory.reformatFSPIOPError(err)
           }
-        })
+        }, { isolationLevel: 'read committed' })
         for (const msg of pendingNotifications) {
           await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, msg, Utility.ENUMS.STATE.SUCCESS)
         }
