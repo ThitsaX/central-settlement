@@ -792,8 +792,7 @@ const Facade = {
     while (true) {
       const pendingNotifications = []
       try {
-        const result = await knex.transaction(async (trx) => {
-          await knex.raw('SET TRANSACTION ISOLATION LEVEL READ COMMITTED').transacting(trx)
+        const result = await knex.transaction({ isolationLevel: 'read committed' }, async (trx) => {
           try {
             const transactionTimestamp = new Date().toISOString().replace(/[TZ]/g, ' ').trim()
 
