@@ -1217,7 +1217,9 @@ const Facade = {
       } catch (err) {
         if (_isDeadlockError(err) && retryCount < Config.SETTLEMENT_DEADLOCK_RETRIES) {
           retryCount++
-          await new Promise(resolve => setTimeout(resolve, Config.SETTLEMENT_DEADLOCK_RETRY_DELAY_MS * retryCount))
+          const delay = Config.SETTLEMENT_DEADLOCK_RETRY_DELAY_MS * retryCount
+          Logger.isWarnEnabled && Logger.warn(`putById: deadlock detected for settlementId=${settlementId}, retrying (attempt ${retryCount}/${Config.SETTLEMENT_DEADLOCK_RETRIES}) after ${delay}ms — ${err.message}`)
+          await new Promise(resolve => setTimeout(resolve, delay))
         } else {
           throw err
         }
