@@ -23,6 +23,10 @@
     "RETRY_COUNT": 3,
     "RETRY_INTERVAL": 3000
   },
+  "DEADLOCK": {
+    "RETRIES": 3,
+    "RETRY_DELAY_MS": 50
+  },
   "TRANSFER_VALIDITY_SECONDS": "432000",
   "HUB_PARTICIPANT": {
     "ID": 1,
