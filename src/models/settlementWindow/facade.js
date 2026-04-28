@@ -237,7 +237,9 @@ const Facade = {
             pCurrencyIds.push(entry.participantCurrencyId);
           }
           if (balanced.toNumber() !== 0) {
-            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, `Debits and credits are not balanced yet`);
+            const errMessage = `Debits and credits are not balanced in participantPositionChange for window ID ${settlementWindowId}`
+            Logger.isErrorEnabled && Logger.error(errMessage)
+            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, errMessage)
           }
 
           const transactionTimestamp = new Date()
@@ -307,6 +309,21 @@ const Facade = {
             })
             .transacting(trx)
           await builder
+
+          // Then check again if debit/credit are balanced after aggregation
+          const aggContent = await knex
+            .from('settlementContentAggregation AS sca')
+            .join('settlementWindowContent AS swc', 'swc.settlementWindowContentId', 'sca.settlementWindowContentId')
+            .where('swc.settlementWindowId', settlementWindowId)
+            .sum('sca.amount AS balanced')
+            .first()
+            .transacting(trx)
+
+          if (aggContent.balanced == null || new MLNumber(aggContent.balanced).toNumber() !== 0) {
+            const errMessage = `Debits and credits are not balanced in settlementContentAggregation for window ID ${settlementWindowId}`
+            Logger.isErrorEnabled && Logger.error(errMessage)
+            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, errMessage)
+          }
 
           // Insert settlementWindowContentStateChange
           builder = knex
