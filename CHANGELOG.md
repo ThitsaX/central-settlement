@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [17.4.0](https://github.com/mojaloop/central-settlement/compare/v17.3.4...v17.4.0) (2026-05-25)
+
+
+### Features
+
+* replace blocking queries from settlement process ([#478](https://github.com/mojaloop/central-settlement/issues/478)) ([6194d10](https://github.com/mojaloop/central-settlement/commit/6194d109fcde2a9ca6bee8a8c790d196c8a560cc))
+
+
+### Bug Fixes
+
+* vulnerabilities of qs ([#480](https://github.com/mojaloop/central-settlement/issues/480)) ([7e81a84](https://github.com/mojaloop/central-settlement/commit/7e81a84f0c89870659cb1abef460f02270e26810))
+
+
+### Chore
+
+* add private:true to prevent npm publish ([#4384](https://github.com/mojaloop/central-settlement/issues/4384)) ([#472](https://github.com/mojaloop/central-settlement/issues/472)) ([7905050](https://github.com/mojaloop/central-settlement/commit/79050505774edaefc16777528620b43219b41d44))
+* **sbom:** update sbom [skip ci] ([d4f46fd](https://github.com/mojaloop/central-settlement/commit/d4f46fda32ce0ddcf203be66db6690874655a329))
+
 ### [17.3.4](https://github.com/mojaloop/central-settlement/compare/v17.3.3...v17.3.4) (2026-02-26)
 
 
