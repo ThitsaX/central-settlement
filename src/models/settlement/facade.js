@@ -907,46 +907,17 @@ const Facade = {
               const accountPayload = participantPayload.accounts[account]
               // seq-settlement-6.2.5, step 13
               if (allAccounts[accountPayload.id] === undefined) {
-                participant.accounts.push({
-                  id: accountPayload.id,
-                  errorInformation: ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.CLIENT_ERROR, 'Account not found').toApiErrorObject().errorInformation
-                })
+                throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.CLIENT_ERROR, `Account not found for id ${accountPayload.id}`)
                 // seq-settlement-6.2.5, step 14
               } else if (participantPayload.id !== allAccounts[accountPayload.id].participantId) {
                 processedAccounts.push(accountPayload.id)
-                participant.accounts.push({
-                  id: accountPayload.id,
-                  errorInformation: ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.CLIENT_ERROR, 'Participant and account mismatch').toApiErrorObject().errorInformation
-                })
+                throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.CLIENT_ERROR, `Participant id ${participantPayload.id} and account id ${accountPayload.id} mismatch`)
                 // seq-settlement-6.2.5, step 15
               } else if (processedAccounts.indexOf(accountPayload.id) > -1) {
-                participant.accounts.push({
-                  id: accountPayload.id,
-                  state: allAccounts[accountPayload.id].state,
-                  reason: allAccounts[accountPayload.id].reason,
-                  createdDate: allAccounts[accountPayload.id].createdDate,
-                  netSettlementAmount: allAccounts[accountPayload.id].netSettlementAmount,
-                  errorInformation: ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.CLIENT_ERROR, 'Account already processed once').toApiErrorObject().errorInformation
-                })
+                throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.CLIENT_ERROR, `Account id ${accountPayload.id} is already processed once`)
                 // seq-settlement-6.2.5, step 16
               } else if (allAccounts[accountPayload.id].state === accountPayload.state) {
-                processedAccounts.push(accountPayload.id)
-                participant.accounts.push({
-                  id: accountPayload.id,
-                  state: accountPayload.state,
-                  reason: accountPayload.reason,
-                  externalReference: accountPayload.externalReference,
-                  createdDate: transactionTimestamp,
-                  netSettlementAmount: allAccounts[accountPayload.id].netSettlementAmount
-                })
-                settlementParticipantCurrencyStateChange.push({
-                  settlementParticipantCurrencyId: allAccounts[accountPayload.id].key,
-                  settlementStateId: accountPayload.state,
-                  reason: accountPayload.reason,
-                  externalReference: accountPayload.externalReference
-                })
-                allAccounts[accountPayload.id].reason = accountPayload.reason
-                allAccounts[accountPayload.id].createdDate = transactionTimestamp
+                throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.CLIENT_ERROR, `Account id ${accountPayload.id} is already in ${accountPayload.state} state`)
                 // seq-settlement-6.2.5, step 17
               } else if ((settlementData.settlementStateId === enums.settlementStates.PENDING_SETTLEMENT && accountPayload.state === enums.settlementStates.PS_TRANSFERS_RECORDED) ||
                 (settlementData.settlementStateId === enums.settlementStates.PS_TRANSFERS_RECORDED && accountPayload.state === enums.settlementStates.PS_TRANSFERS_RESERVED) ||
