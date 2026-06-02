@@ -1177,7 +1177,7 @@ const Facade = {
           }
         }
           } catch (err) {
-            Logger.isErrorEnabled && Logger.error(err)
+            logger.error(err)
             throw ErrorHandler.Factory.reformatFSPIOPError(err)
           }
         }, { isolationLevel: 'read committed' })
@@ -1189,7 +1189,7 @@ const Facade = {
         if (_isDeadlockError(err) && retryCount < Config.SETTLEMENT_DEADLOCK_RETRIES) {
           retryCount++
           const delay = Config.SETTLEMENT_DEADLOCK_RETRY_DELAY_MS * retryCount
-          Logger.isWarnEnabled && Logger.warn(`putById: deadlock detected for settlementId=${settlementId}, retrying (attempt ${retryCount}/${Config.SETTLEMENT_DEADLOCK_RETRIES}) after ${delay}ms — ${err.message}`)
+          logger.warn(`putById: deadlock detected for settlementId=${settlementId}, retrying (attempt ${retryCount}/${Config.SETTLEMENT_DEADLOCK_RETRIES}) after ${delay}ms — ${err.message}`)
           await new Promise(resolve => setTimeout(resolve, delay))
         } else {
           throw err

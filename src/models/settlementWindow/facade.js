@@ -238,7 +238,7 @@ const Facade = {
           }
           if (balanced.toNumber() !== 0) {
             const errMessage = `Debits and credits are not balanced in participantPositionChange for window ID ${settlementWindowId}`
-            Logger.isErrorEnabled && Logger.error(errMessage)
+            logger.error(errMessage)
             throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, errMessage)
           }
 
@@ -321,7 +321,7 @@ const Facade = {
 
           if (aggContent.balanced == null || new MLNumber(aggContent.balanced).toNumber() !== 0) {
             const errMessage = `Debits and credits are not balanced in settlementContentAggregation for window ID ${settlementWindowId}`
-            Logger.isErrorEnabled && Logger.error(errMessage)
+            logger.error(errMessage)
             throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, errMessage)
           }
 
