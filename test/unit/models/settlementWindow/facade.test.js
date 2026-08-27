@@ -53,6 +53,7 @@ Test('Settlement Window facade', async (settlementWindowFacadeTest) => {
   let leftJoin2Stub
   let leftJoin3Stub
   let leftJoin4Stub
+  let leftJoin5Stub
   let join2Stub
 
   settlementWindowFacadeTest.beforeEach(test => {
@@ -103,12 +104,17 @@ Test('Settlement Window facade', async (settlementWindowFacadeTest) => {
     leftJoin2Stub = sandbox.stub()
     leftJoin3Stub = sandbox.stub()
     leftJoin4Stub = sandbox.stub()
+    leftJoin5Stub = sandbox.stub()
     builderStub.leftJoin.returns({
       select: selectStub.returns(selectStubResult),
       leftJoin: leftJoin2Stub.returns({
+        select: selectStub.returns(selectStubResult),
         leftJoin: leftJoin3Stub.returns({
           leftJoin: leftJoin4Stub.returns({
-            select: selectStub.returns(selectStubResult)
+            select: selectStub.returns(selectStubResult),
+            leftJoin: leftJoin5Stub.returns({
+              select: selectStub.returns(selectStubResult)
+            })
           })
         })
       })
@@ -148,6 +154,21 @@ Test('Settlement Window facade', async (settlementWindowFacadeTest) => {
 
       await getByIdTest.test('retrieve settlement window data by id', async test => {
         try {
+          const knexStub = sandbox.stub()
+          knexStub.returns({
+            select: sandbox.stub().returns({
+              max: sandbox.stub().returns({
+                where: sandbox.stub().returns({
+                  groupBy: sandbox.stub().returns({
+                    as: sandbox.stub()
+                  })
+                })
+              })
+            })
+          })
+
+          Db.getKnex = sandbox.stub().resolves(knexStub)
+
           Db.settlementWindow.query.returns(Promise.resolve(settlementWindowResultStub))
 
           const result = await SettlementWindowFacade.getById({ settlementWindowId }, enums)
@@ -157,13 +178,15 @@ Test('Settlement Window facade', async (settlementWindowFacadeTest) => {
             'swsc.settlementWindowStateId as state',
             'swsc.reason as reason',
             'settlementWindow.createdDate as createdDate',
-            'swsc.createdDate as changedDate').calledOnce)
+            'swsc.createdDate as changedDate',
+            'swClosed.closedDate as closedDate'
+          ).calledOnce)
           test.ok(firstStub.calledOnce)
           test.ok(whereStub.withArgs('settlementWindow.settlementWindowId', settlementWindowId).calledOnce)
           test.end()
         } catch (err) {
           logger.error(`getById failed with error - ${err}`)
-          test.fail()
+          test.fail(err)
           test.end()
         }
       })
@@ -278,19 +301,37 @@ Test('Settlement Window facade', async (settlementWindowFacadeTest) => {
 
       await getByParamsTest.test('retrieve settlement windows by params', async test => {
         try {
+          const knexStub = sandbox.stub()
+          knexStub.returns({
+            select: sandbox.stub().returns({
+              max: sandbox.stub().returns({
+                where: sandbox.stub().returns({
+                  groupBy: sandbox.stub().returns({
+                    as: sandbox.stub()
+                  })
+                })
+              })
+            })
+          })
+
+          Db.getKnex = sandbox.stub().resolves(knexStub)
+
           Db.settlementWindow.query.returns(Promise.resolve(settlementWindowResultStub))
 
           const result = await SettlementWindowFacade.getByParams({ query }, enums)
           test.ok(result, 'Result returned')
           test.ok(builderStub.leftJoin.withArgs('settlementWindowStateChange AS swsc', 'swsc.settlementWindowStateChangeId', 'settlementWindow.currentStateChangeId').calledOnce)
-          test.ok(leftJoin2Stub.withArgs('transferFulfilment AS tf', 'tf.settlementWindowId', 'settlementWindow.settlementWindowId').calledOnce)
-          test.ok(leftJoin3Stub.withArgs('transferParticipant AS tp', 'tp.transferId', 'tf.transferId').calledOnce)
-          test.ok(leftJoin4Stub.withArgs('participantCurrency AS pc', 'pc.participantCurrencyId', 'tp.participantCurrencyId').calledOnce)
-          test.ok(selectStub.withArgs('settlementWindow.settlementWindowId',
+          test.ok(leftJoin3Stub.withArgs('transferFulfilment AS tf', 'tf.settlementWindowId', 'settlementWindow.settlementWindowId').calledOnce)
+          test.ok(leftJoin4Stub.withArgs('transferParticipant AS tp', 'tp.transferId', 'tf.transferId').calledOnce)
+          test.ok(leftJoin5Stub.withArgs('participantCurrency AS pc', 'pc.participantCurrencyId', 'tp.participantCurrencyId').calledOnce)
+          test.ok(selectStub.withArgs(
+            'settlementWindow.settlementWindowId',
             'swsc.settlementWindowStateId as state',
             'swsc.reason as reason',
             'settlementWindow.createdDate as createdDate',
-            'swsc.createdDate as changedDate').calledOnce)
+            'swsc.createdDate as changedDate',
+            'swClosed.closedDate as closedDate'
+          ).calledOnce)
           test.ok(orderByStub.withArgs('changedDate', 'desc').calledOnce)
           test.ok(distinctStub.calledOnce)
           test.ok(whereStub.withArgs('pc.participantId', participantId).calledOnce)
@@ -301,22 +342,37 @@ Test('Settlement Window facade', async (settlementWindowFacadeTest) => {
           test.end()
         } catch (err) {
           logger.error(`getByParams failed with error - ${err}`)
-          test.fail()
+          test.fail(err)
           test.end()
         }
       })
 
       await getByParamsTest.test('retrieve settlement windows by params', async test => {
         try {
+          const knexStub = sandbox.stub()
+          knexStub.returns({
+            select: sandbox.stub().returns({
+              max: sandbox.stub().returns({
+                where: sandbox.stub().returns({
+                  groupBy: sandbox.stub().returns({
+                    as: sandbox.stub()
+                  })
+                })
+              })
+            })
+          })
+
+          Db.getKnex = sandbox.stub().resolves(knexStub)
+
           Db.settlementWindow.query.returns(Promise.resolve(settlementWindowResultStub))
 
           query = { participantId }
           const result = await SettlementWindowFacade.getByParams({ query }, enums)
           test.ok(result, 'Result returned')
           test.ok(builderStub.leftJoin.withArgs('settlementWindowStateChange AS swsc', 'swsc.settlementWindowStateChangeId', 'settlementWindow.currentStateChangeId').calledOnce)
-          test.ok(leftJoin2Stub.withArgs('transferFulfilment AS tf', 'tf.settlementWindowId', 'settlementWindow.settlementWindowId').calledOnce)
-          test.ok(leftJoin3Stub.withArgs('transferParticipant AS tp', 'tp.transferId', 'tf.transferId').calledOnce)
-          test.ok(leftJoin4Stub.withArgs('participantCurrency AS pc', 'pc.participantCurrencyId', 'tp.participantCurrencyId').calledOnce)
+          test.ok(leftJoin3Stub.withArgs('transferFulfilment AS tf', 'tf.settlementWindowId', 'settlementWindow.settlementWindowId').calledOnce)
+          test.ok(leftJoin4Stub.withArgs('transferParticipant AS tp', 'tp.transferId', 'tf.transferId').calledOnce)
+          test.ok(leftJoin5Stub.withArgs('participantCurrency AS pc', 'pc.participantCurrencyId', 'tp.participantCurrencyId').calledOnce)
           test.ok(selectStub.withArgs('settlementWindow.settlementWindowId',
             'swsc.settlementWindowStateId as state',
             'swsc.reason as reason',
@@ -338,15 +394,30 @@ Test('Settlement Window facade', async (settlementWindowFacadeTest) => {
 
       await getByParamsTest.test('retrieve settlement windows by params', async test => {
         try {
+          const knexStub = sandbox.stub()
+          knexStub.returns({
+            select: sandbox.stub().returns({
+              max: sandbox.stub().returns({
+                where: sandbox.stub().returns({
+                  groupBy: sandbox.stub().returns({
+                    as: sandbox.stub()
+                  })
+                })
+              })
+            })
+          })
+
+          Db.getKnex = sandbox.stub().resolves(knexStub)
+
           Db.settlementWindow.query.returns(Promise.resolve(settlementWindowResultStub))
 
           query = { state, fromDateTime, toDateTime, currency }
           const result = await SettlementWindowFacade.getByParams({ query }, enums)
           test.ok(result, 'Result returned')
           test.ok(builderStub.leftJoin.withArgs('settlementWindowStateChange AS swsc', 'swsc.settlementWindowStateChangeId', 'settlementWindow.currentStateChangeId').calledOnce)
-          test.ok(leftJoin2Stub.withArgs('transferFulfilment AS tf', 'tf.settlementWindowId', 'settlementWindow.settlementWindowId').calledOnce)
-          test.ok(leftJoin3Stub.withArgs('transferParticipant AS tp', 'tp.transferId', 'tf.transferId').calledOnce)
-          test.ok(leftJoin4Stub.withArgs('participantCurrency AS pc', 'pc.participantCurrencyId', 'tp.participantCurrencyId').calledOnce)
+          test.ok(leftJoin3Stub.withArgs('transferFulfilment AS tf', 'tf.settlementWindowId', 'settlementWindow.settlementWindowId').calledOnce)
+          test.ok(leftJoin4Stub.withArgs('transferParticipant AS tp', 'tp.transferId', 'tf.transferId').calledOnce)
+          test.ok(leftJoin5Stub.withArgs('participantCurrency AS pc', 'pc.participantCurrencyId', 'tp.participantCurrencyId').calledOnce)
           test.ok(selectStub.withArgs('settlementWindow.settlementWindowId',
             'swsc.settlementWindowStateId as state',
             'swsc.reason as reason',
@@ -584,11 +655,28 @@ Test('Settlement Window facade', async (settlementWindowFacadeTest) => {
 
       await getBySettlementIdTest.test('retrieve settlement windows by settlement id', async test => {
         try {
+          const knexStub = sandbox.stub()
+          knexStub.returns({
+            select: sandbox.stub().returns({
+              max: sandbox.stub().returns({
+                where: sandbox.stub().returns({
+                  groupBy: sandbox.stub().returns({
+                    as: sandbox.stub()
+                  })
+                })
+              })
+            })
+          })
+
+          Db.getKnex = sandbox.stub().resolves(knexStub)
+
           join2Stub = sandbox.stub()
           builderStub.join.returns({
             join: join2Stub.returns({
-              select: selectStub.returns({
-                where: whereStub
+              leftJoin: sandbox.stub().returns({
+                select: selectStub.returns({
+                  where: whereStub
+                })
               })
             })
           })
@@ -607,7 +695,7 @@ Test('Settlement Window facade', async (settlementWindowFacadeTest) => {
           test.end()
         } catch (err) {
           logger.error(`getBySettlementId failed with error - ${err}`)
-          test.fail()
+          test.fail(err)
           test.end()
         }
       })

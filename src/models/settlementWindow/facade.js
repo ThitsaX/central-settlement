@@ -211,36 +211,6 @@ const Facade = {
     } else {
       return knex.transaction(async (trx) => {
         try {
-          // First we check if debit/credit are balanced
-          const ledgerEntries = await knex
-            .select('ppc.participantCurrencyId', 'ppc.change')
-            .from('transferFulfilment AS tf')
-            .join('transferStateChange AS tsc', 'tsc.transferId', 'tf.transferId')
-            .join('participantPositionChange AS ppc', 'ppc.transferStateChangeId', 'tsc.transferStateChangeId')
-            .where('tf.settlementWindowId', settlementWindowId)
-            .unionAll(/* istanbul ignore next */ function () {
-              this.select('ppc.participantCurrencyId', 'ppc.change')
-                .from('fxTransferFulfilment AS fxtf')
-                .join('fxTransferStateChange AS fxtsc', 'fxtsc.commitRequestId', 'fxtf.commitRequestId')
-                .join('participantPositionChange AS ppc', 'ppc.fxTransferStateChangeId', 'fxtsc.fxTransferStateChangeId')
-                .where('fxtf.settlementWindowId', settlementWindowId)
-            })
-            .transacting(trx)
-
-          if (!ledgerEntries.length) {
-            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, 'No ledger entries found for this settlement window')
-          }
-
-          let balanced = new MLNumber(0)
-          const pCurrencyIds = []
-          for (const entry of ledgerEntries) {
-            balanced = balanced.add(entry.change)
-            pCurrencyIds.push(entry.participantCurrencyId)
-          }
-          if (balanced.toNumber() !== 0) {
-            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, 'Debits and credits are not balanced yet')
-          }
-
           const transactionTimestamp = new Date()
           // Insert settlementWindowContent
           const allSettlementModels = await SettlementModelModel.getAll()
@@ -306,6 +276,18 @@ const Facade = {
             settlementWindowId,
             Enum.Settlements.SettlementGranularity.NET
           ]).transacting(trx)
+
+          // First we need to check if debits and credits are balanced
+          const ledgerTotal = await knex
+            .from('tmp_swc_agg')
+            .sum('amount AS balanced')
+            .first()
+            .transacting(trx)
+
+          if (ledgerTotal.balanced == null || new MLNumber(ledgerTotal.balanced).toNumber() !== 0) {
+            const errMessage = `Debits and credits are not balanced in participantPositionChange for window ID ${settlementWindowId}`
+            throw ErrorHandler.Factory.createFSPIOPError(ErrorHandler.Enums.FSPIOPErrorCodes.VALIDATION_ERROR, errMessage)
+          }
 
           // Derive distinct swc combinations from temp table — no second read of transferFulfilment
           const [swcDistinct] = await knex.raw(
