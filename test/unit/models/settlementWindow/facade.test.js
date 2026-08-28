@@ -894,6 +894,7 @@ Test('Settlement Window facade', async (settlementWindowFacadeTest) => {
 
           // knex.from(knex.raw('settlementWindowContentStateChange ...')).insert(fn).transacting(trx)
           knexStub.from = sandbox.stub().returns({
+            sum: sandbox.stub().returns({ first: sandbox.stub().returns({ transacting: sandbox.stub().resolves({ balanced: 0 }) }) }),
             insert: sandbox.stub().returns({ transacting: sandbox.stub().resolves() })
           })
 
