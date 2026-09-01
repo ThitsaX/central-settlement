@@ -1234,7 +1234,7 @@ const Facade = {
             throw err
           }
         }, { isolationLevel: 'read committed' })
-        
+
         for (const msg of pendingNotifications) {
           await Utility.produceGeneralMessage(Utility.ENUMS.NOTIFICATION, Utility.ENUMS.EVENT, msg, Utility.ENUMS.STATE.SUCCESS)
         }
